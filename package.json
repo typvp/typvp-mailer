@@ -1,0 +1,22 @@
+{
+  "name": "typvp-mailer",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "dev": "cross-env NODE_ENV=development ts-node-dev --no-notify --respawn --transpileOnly ./src",
+    "start": "cross-env NODE_ENV=production node dist/index.js",
+    "build": "rm -rf dist && tsc"
+  },
+  "dependencies": {
+    "@sendgrid/mail": "^6.4.0",
+    "bull": "^3.12.1",
+    "dotenv": "^8.2.0"
+  },
+  "devDependencies": {
+    "@types/bull": "^3.10.6",
+    "@types/node": "^12.12.12",
+    "ts-node-dev": "^1.0.0-pre.44",
+    "typescript": "^3.7.2"
+  }
+}

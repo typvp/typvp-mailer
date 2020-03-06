@@ -3,31 +3,103 @@ dotenv.config()
 import client from '@sendgrid/mail'
 import Queue, {Job, DoneCallback} from 'bull'
 
-client.setApiKey(process.env.SG_API_KEY)
+import {createVerifyFresh} from './templates/verifyFresh'
+import {createProSuccess} from './templates/proSuccess'
+import {createProNAM} from './templates/proNoAccountMatch'
 
-const emailTemplate = (to: string, url: string) => {
-  return {
-    from: 'typvp <noreply@typvp.xyz>',
-    to,
-    subject: 'Verify your typvp Account!',
-    text: `link to verify your account! ${url}`,
-    html: `<a href=${url}>Click here to verify your typvp account!</a>`,
-  }
+type EmailVariations =
+  | 'Pro_NoAccountMatch'
+  | 'Pro_Success'
+  | 'Verify_Expired'
+  | 'Verify_Fresh'
+
+type JobData = {
+  account: any
+  type: EmailVariations
+  url?: string
+  paymentEmail?: string
 }
 
-const confirmEmailQueue = new Queue('confirm-email', {
+type EmailContext = {
+  to: string
+  from: string
+  subject: string
+  html: string
+  replyTo: string
+}
+
+const DEFAULT_FROM = 'Evan from typvp <support@typvp.xyz>'
+const DEFAULT_REPLY_TO = 'evan@kysley.com'
+
+client.setApiKey(process.env.SG_API_KEY)
+
+const emailQueue = new Queue('email', {
   redis: {
     port: process.env.REDIS_PORT as any,
     password: process.env.REDIS_PASSWORD,
   },
 })
 
-confirmEmailQueue.process(async (job: Job, done: DoneCallback) => {
-  console.log(job.data)
-  await client.send(emailTemplate(job.data.email, job.data.url))
+function composeEmailFromType(type: EmailVariations, data: JobData) {
+  let mjmlObject
+  let context: EmailContext
+  let args
+
+  switch (type) {
+    case 'Verify_Fresh':
+      args = {
+        username: data.account.username,
+        url: data.url,
+      }
+      mjmlObject = createVerifyFresh(args)
+      context = {
+        from: DEFAULT_FROM,
+        to: data.account.email,
+        subject: 'Verify your typvp Account',
+        html: mjmlObject.html,
+        replyTo: DEFAULT_REPLY_TO,
+      }
+      break
+    case 'Pro_Success':
+      args = {
+        username: data.account.username,
+      }
+      mjmlObject = createProSuccess(args)
+      context = {
+        from: DEFAULT_FROM,
+        to: data.account.email,
+        subject: 'Welcome to typvp Pro!',
+        html: mjmlObject.html,
+        replyTo: DEFAULT_REPLY_TO,
+      }
+    case 'Pro_NoAccountMatch':
+      args = {
+        paymentEmail: data.paymentEmail,
+      }
+      mjmlObject = createProNAM(args)
+      context = {
+        from: DEFAULT_FROM,
+        to: data.paymentEmail,
+        subject: 'Something went wrong while upgrading your typvp Account!',
+        html: mjmlObject.html,
+        replyTo: DEFAULT_REPLY_TO,
+      }
+  }
+  return {template: mjmlObject.html, context}
+}
+
+emailQueue.process(async (job: Job<JobData>, done: DoneCallback) => {
+  const {data} = job
+
+  const {context} = composeEmailFromType(data.type, data)
+
+  await client.send({
+    ...context,
+  })
+
   done()
 })
 
-confirmEmailQueue.on('completed', job => {
+emailQueue.on('completed', job => {
   console.log(`Job with id ${job.id} has been completed`)
 })

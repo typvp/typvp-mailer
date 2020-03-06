@@ -11,10 +11,12 @@
   "dependencies": {
     "@sendgrid/mail": "^6.4.0",
     "bull": "^3.12.1",
-    "dotenv": "^8.2.0"
+    "dotenv": "^8.2.0",
+    "mjml": "^4.6.2"
   },
   "devDependencies": {
     "@types/bull": "^3.10.6",
+    "@types/mjml": "^4.0.3",
     "@types/node": "^12.12.12",
     "ts-node-dev": "^1.0.0-pre.44",
     "typescript": "^3.7.2"
